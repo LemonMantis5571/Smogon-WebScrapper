@@ -1,11 +1,11 @@
-import puppeteer from "puppeteer"; 
+import puppeteer from "puppeteer";
 
 export const getSmFirstSample = async (req, res) => {
     const browser = await puppeteer.launch({
         headless: false,
         defaultViewport: null,
     });
-    
+
     const page = await browser.newPage();
     const { pokemon } = req.params;
 
@@ -25,15 +25,24 @@ export const getSmFirstSample = async (req, res) => {
             page.$$eval(".PokemonSummary-types a", (types) => types.map((type) => type.textContent.trim())),
             page.$eval(".FormatList li:first-child a", (el) => el.textContent.trim()),
             page.evaluate(() => {
-                const divThatContainsSetSummary = document.querySelector(".MovesetInfo-misc table");
+                const divThatContainsSetSummary = document.querySelector(".MovesetInfo-misc");
                 if (!divThatContainsSetSummary) return null;
+                const setSummary = divThatContainsSetSummary.getElementsByTagName("table");
+                const set = [];
+                const evsList = [];
+                const item = setSummary[0].querySelector('.ItemLink').querySelector('span').querySelector('span:nth-child(3)')
+                    .textContent.trim();
 
-                const item = divThatContainsSetSummary.querySelector('.ItemLink span span:nth-child(3)').textContent.trim();
-                const ability = divThatContainsSetSummary.querySelector("td:nth-child(2) .AbilityLink span").textContent.trim();
-                const nature = divThatContainsSetSummary.querySelector("td:nth-child(3)").textContent.trim();
-                const evs = Array.from(divThatContainsSetSummary.querySelectorAll("td:nth-child(4) ul li")).map((ev) => ev.textContent.trim());
-
-                return [{ item, ability, nature, evs }];
+                const ability = setSummary[0].querySelectorAll("td")[1].querySelector(".AbilityLink").querySelector("span")
+                    .textContent.trim();
+                const nature = setSummary[0].querySelectorAll("td")[2].textContent.trim();
+                const evs = setSummary[0].querySelectorAll("td")[3].querySelector('ul').querySelectorAll('li');
+                evs.forEach((ev) => {
+                    const evText = ev.textContent.trim();
+                    evsList.push(evText);
+                });
+                set.push({ item, ability, nature, evsList });
+                return set;
             }),
             page.evaluate(() => {
                 const moves = Array.from(document.querySelectorAll(".MoveList")).slice(0, 4);
