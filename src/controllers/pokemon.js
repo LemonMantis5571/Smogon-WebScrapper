@@ -1,83 +1,56 @@
 import puppeteer from "puppeteer"; 
 
 export const getSmFirstSample = async (req, res) => {
-
     const browser = await puppeteer.launch({
         headless: false,
         defaultViewport: null,
     });
-
+    
     const page = await browser.newPage();
-
     const { pokemon } = req.params;
+
     try {
         await page.goto(`https://www.smogon.com/dex/sm/pokemon/${pokemon}/`, {
             waitUntil: "networkidle2",
         });
-        const PokemonName = await page.evaluate(() => {
-            const divthatcontainsName = document.querySelectorAll("#PokemonPage-HeaderGrouper");
-            const name = divthatcontainsName[0].querySelector("h1").textContent.trim();
-            return name;
-        });
 
-        const pokemonType = await page.evaluate(() => {
-            const divthatcontainsType = document.querySelectorAll(".PokemonSummary-types");
-            const type = divthatcontainsType[0].querySelectorAll("a");
-            const typeArray = [];
-            type.forEach((type) => {
-                typeArray.push(type.textContent.trim());
-            });
-            return typeArray;
-        });
+        const [
+            PokemonName,
+            pokemonType,
+            Tier,
+            setSummary,
+            moveSet
+        ] = await Promise.all([
+            page.$eval("#PokemonPage-HeaderGrouper h1", (el) => el.textContent.trim()),
+            page.$$eval(".PokemonSummary-types a", (types) => types.map((type) => type.textContent.trim())),
+            page.$eval(".FormatList li:first-child a", (el) => el.textContent.trim()),
+            page.evaluate(() => {
+                const divThatContainsSetSummary = document.querySelector(".MovesetInfo-misc table");
+                if (!divThatContainsSetSummary) return null;
 
+                const item = divThatContainsSetSummary.querySelector('.ItemLink span span:nth-child(3)').textContent.trim();
+                const ability = divThatContainsSetSummary.querySelector("td:nth-child(2) .AbilityLink span").textContent.trim();
+                const nature = divThatContainsSetSummary.querySelector("td:nth-child(3)").textContent.trim();
+                const evs = Array.from(divThatContainsSetSummary.querySelectorAll("td:nth-child(4) ul li")).map((ev) => ev.textContent.trim());
 
-        const Tier = await page.evaluate(() => {
-            const divThatContainsTier = document.querySelectorAll(".FormatList");
-            const tierli = divThatContainsTier[0].querySelectorAll("li");
-            const tier = tierli[0].querySelector("a").textContent.trim();
-            return tier;
-        });
+                return [{ item, ability, nature, evs }];
+            }),
+            page.evaluate(() => {
+                const moves = Array.from(document.querySelectorAll(".MoveList")).slice(0, 4);
+                if (!moves.length) return null;
 
-        const setSummary = await page.evaluate(() => {
-            const divThatContainsSetSummary = document.querySelector(".MovesetInfo-misc");
-            if (!divThatContainsSetSummary) return null;
-            const setSummary = divThatContainsSetSummary.getElementsByTagName("table");
-            const set = [];
-            const evsList = [];
-            const item = setSummary[0].querySelector('.ItemLink').querySelector('span').querySelector('span:nth-child(3)')
-            .textContent.trim();
+                return moves.map((move) => {
+                    const moveType = move.querySelector(".Type").textContent.trim();
+                    const spansText = Array.from(move.querySelectorAll("span")).map((span) => span.textContent.trim());
 
-            const ability = setSummary[0].querySelectorAll("td")[1].querySelector(".AbilityLink").querySelector("span")
-            .textContent.trim();
-            const nature = setSummary[0].querySelectorAll("td")[2].textContent.trim();
-            const evs = setSummary[0].querySelectorAll("td")[3].querySelector('ul').querySelectorAll('li');
-            evs.forEach((ev) => {
-                const evText = ev.textContent.trim();
-                evsList.push(evText);
-            });
-            set.push({ item, ability, nature, evsList });
-            return set;
-        });
-
-        const moveSet = await page.evaluate(() => {
-            const moves = document.querySelectorAll(".MoveList");
-            if (!moves) return null;
-            const moveSet = [];
-            firstMovePool = Array.from(moves).slice(0, 4);
-            firstMovePool.forEach((move) => {
-                const spans = move.querySelectorAll("span");
-                const moveType = move.querySelector(".Type").textContent.trim(); 
-                const spansText = Array.from(spans).slice(0, 1).map((span) => span.textContent.trim()); 
-
-                moveSet.push({ Move: spansText, moveType }); 
-            });
-
-            return moveSet;
-        });
+                    return { Move: spansText, moveType };
+                });
+            }),
+        ]);
 
         res.json({
             PokemonName,
-            Tier: Tier,
+            Tier,
             setSummary,
             Types: pokemonType,
             moveSet,
@@ -88,6 +61,5 @@ export const getSmFirstSample = async (req, res) => {
     }
 
     await browser.close();
-  };
-
+};
 
