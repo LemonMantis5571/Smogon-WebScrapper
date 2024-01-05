@@ -8,6 +8,7 @@ export const getSmFirstSample = async (req, res) => {
 
     const page = await browser.newPage();
     const { pokemon } = req.params;
+    page.setDefaultNavigationTimeout(10 * 60 * 1000);
 
     try {
         await page.goto(`https://www.smogon.com/dex/sm/pokemon/${pokemon}/`, {
