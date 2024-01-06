@@ -22,22 +22,26 @@ export const getSmFirstSample = async (req, res) => {
             setSummary,
             moveSet
         ] = await Promise.all([
+            // Get pokemon name
             page.$eval("#PokemonPage-HeaderGrouper h1", (el) => el.textContent.trim()).catch(() => {
-              res.status(404).send('Pokemon not found');
+                return res.status(404).send({ message: 'No pokemon found' });
             }),
+            // Get pokemon type
             page.$$eval(".PokemonSummary-types a", (types) => types.map((type) => type.textContent.trim())),
+            // Get pokemon tier
             page.$eval(".FormatList li:first-child a", (el) => el.textContent.trim()),
+            // Get pokemon sample set
             page.evaluate(() => {
                 const divThatContainsSetSummary = document.querySelector(".MovesetInfo-misc");
                 if (!divThatContainsSetSummary) return null;
                 const setSummary = divThatContainsSetSummary.getElementsByTagName("table");
                 const set = [];
-                const evsList = [];
                 const item = setSummary[0].querySelector('.ItemLink').querySelector('span').querySelector('span:nth-child(3)')
                     .textContent.trim();
                 const ability = setSummary[0].querySelectorAll("td")[1].querySelector(".AbilityLink").querySelector("span")
                     .textContent.trim();
                 const nature = setSummary[0].querySelectorAll("td")[2].textContent.trim();
+                // Get evs
                 const evs = setSummary[0].querySelectorAll("td")[3].querySelector('ul').querySelectorAll('li');
                 const statMap = {
                     'HP': 0,
@@ -65,7 +69,10 @@ export const getSmFirstSample = async (req, res) => {
 
                 set.push({ item, ability, nature, evsList: formattedEvs });
                 return set;
-              }),
+            }).catch(() => {
+                return res.status(404).send({ message: 'No set found' });
+            }),
+            // Get pokemon moveset
             page.evaluate(() => {
                 const moves = Array.from(document.querySelectorAll(".MoveList")).slice(0, 4);
                 if (!moves.length) return null;
@@ -78,8 +85,8 @@ export const getSmFirstSample = async (req, res) => {
                 });
             }),
         ]);
-        
-        if(!PokemonName) res.status(404).send('Not found');
+
+        if (!setSummary) return res.status(404).json({ message: 'No set found' });
 
         res.json({
             PokemonName,
